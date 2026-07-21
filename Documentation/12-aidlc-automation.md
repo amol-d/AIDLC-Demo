@@ -67,6 +67,25 @@ The pieces that make the loop run end-to-end without a human babysitting it:
 - **Verified promotion** — DEV runs a post-deploy smoke test; `promotion-guard` blocks a
   `dev → preprod` (and `preprod → main`) PR until that smoke succeeded.
 
+## Security & guardrails
+
+The agent runs autonomously on a disposable runner, so its blast radius is fenced:
+
+- **Trusted triggers only** — `codex.yml`/`claude.yml` run only when the issue/comment
+  author is `OWNER`, `MEMBER`, or `COLLABORATOR`. Arbitrary users cannot drive the agent
+  by opening an issue.
+- **Untrusted-input framing** — the request text is written to a file and the agent is told
+  to treat it as an untrusted product spec: implement only the described app feature and
+  ignore any embedded instruction to reveal secrets, touch `.github/`/CI, or weaken tests.
+- **No deploy secrets in the agent job** — agent jobs receive only the AI key (+ bot token
+  for git); Firebase/signing secrets live solely in the deploy workflows.
+- **Human approval before merge** — CI, AI review, and a required PR review gate every merge
+  (`.github/settings.yml`); the agent proposes, a human approves.
+- **Scanning** — `security.yml` runs gitleaks (committed secrets) and dependency-review
+  (vulnerable deps + denied licenses); Dependabot keeps deps patched. `dart analyze
+  --fatal-infos` in CI is the Dart SAST (CodeQL does not support Dart).
+- **Bounded self-heal** — `agent-autofix` retries at most 3 times, then asks for a human.
+
 ## Agent knowledge
 
 - `CLAUDE.md` / `AGENTS.md` — repo rules, commands, architecture.
